@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ESP32 BME680 Web Bluetooth</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f0f4f8;
+      padding: 40px;
+      color: #333;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+    }
+
+    .sensor-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin: 20px auto;
+      width: 300px;
+      text-align: left;
+      transition: background 0.3s;
+    }
+
+    .sensor-card h3 {
+      margin: 0 0 10px;
+    }
+
+    .sensor-card .value {
+      font-size: 1.6em;
+      margin-top: 10px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+      float: right;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    #connectBtn {
+      padding: 12px 28px;
+      font-size: 16px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    #connectBtn:hover {
+      background: #218838;
+    }
+  </style>
+</head>
+<body>
+  <h2>ESP32 BME680 Web Bluetooth</h2>
+  <button id="connectBtn" onclick="connect()">🔗 Connect to ESP32</button>
+
+  <div class="sensor-card">
+    <h3>🌡️ Temperature 
+      <label class="switch">
+        <input type="checkbox" id="toggleTemp" checked>
+        <span class="slider"></span>
+      </label>
+    </h3>
+    <div class="value"><span id="temp">--</span> °C</div>
+  </div>
+
+  <div class="sensor-card">
+    <h3>💧 Humidity 
+      <label class="switch">
+        <input type="checkbox" id="toggleHumidity" checked>
+        <span class="slider"></span>
+      </label>
+    </h3>
+    <div class="value"><span id="humidity">--</span> %</div>
+  </div>
+
+  <div class="sensor-card">
+    <h3>📈 Pressure 
+      <label class="switch">
+        <input type="checkbox" id="togglePressure" checked>
+        <span class="slider"></span>
+      </label>
+    </h3>
+    <div class="value"><span id="pressure">--</span> hPa</div>
+  </div>
+
+  <script>
+    const SERVICE_UUID = '12345678-1234-1234-1234-1234567890ab';
+    const TEMP_UUID = '12345678-1234-1234-1234-1234567890ac';
+    const HUMIDITY_UUID = '12345678-1234-1234-1234-1234567890ad';
+    const PRESSURE_UUID = '12345678-1234-1234-1234-1234567890ae';
+
+    let device, tempChar, humidityChar, pressureChar;
+
+    async function connect() {
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: 'ESP32_BME680' }],
+          optionalServices: [SERVICE_UUID]
+        });
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+
+        tempChar = await service.getCharacteristic(TEMP_UUID);
+        humidityChar = await service.getCharacteristic(HUMIDITY_UUID);
+        pressureChar = await service.getCharacteristic(PRESSURE_UUID);
+
+        await tempChar.startNotifications();
+        await humidityChar.startNotifications();
+        await pressureChar.startNotifications();
+
+        tempChar.addEventListener('characteristicvaluechanged', (e) => {
+          if (document.getElementById("toggleTemp").checked) {
+            const value = new TextDecoder().decode(e.target.value);
+            document.getElementById("temp").innerText = value;
+          }
+        });
+
+        humidityChar.addEventListener('characteristicvaluechanged', (e) => {
+          if (document.getElementById("toggleHumidity").checked) {
+            const value = new TextDecoder().decode(e.target.value);
+            document.getElementById("humidity").innerText = value;
+          }
+        });
+
+        pressureChar.addEventListener('characteristicvaluechanged', (e) => {
+          if (document.getElementById("togglePressure").checked) {
+            const value = new TextDecoder().decode(e.target.value);
+            document.getElementById("pressure").innerText = value;
+          }
+        });
+
+        alert("✅ Connected and receiving sensor data!");
+      } catch (err) {
+        console.error(err);
+        alert("Connection failed.");
+      }
+    }
+  </script>
+</body>
+</html>
